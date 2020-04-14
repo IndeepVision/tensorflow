@@ -2572,8 +2572,13 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
 
     // Enable or disable usage of GPU
     auto deviceMap = config.mutable_device_count();
-    deviceMap->at("GPU") = structOptions->GpuOptions.UseGpu ? 1 : 0;
-    deviceMap->at("CPU") = 1;
+    (*deviceMap)["CPU"] = 1;
+    if (structOptions->GpuOptions.UseGpu) {
+      (*deviceMap)["GPU"] = 1;
+    } 
+    else {
+      (*deviceMap)["GPU"] = 0;
+    }
 
     // Set some other GPU options
     gpuOptions->set_per_process_gpu_memory_fraction(structOptions->GpuOptions.UseGpuFraction);
