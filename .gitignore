@@ -43,3 +43,7 @@ gradleBuild
 Podfile.lock
 Pods
 xcuserdata
+
+# Indeep
+.vscode
+.vs

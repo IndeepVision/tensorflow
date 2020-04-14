@@ -63,5 +63,5 @@ export CUDNN_INSTALL_PATH=${CUDNN_INSTALL_PATH:-"C:/Program Files/NVIDIA GPU Com
 
 # Add Cuda and Cudnn dll directories into PATH
 export PATH="$(cygpath -u "${CUDA_TOOLKIT_PATH}")/bin:$PATH"
-export PATH="$(cygpath -u "${CUDA_TOOLKIT_PATH}")/extras/CUPTI/libx64:$PATH"
+export PATH="$(cygpath -u "${CUDA_TOOLKIT_PATH}")/extras/CUPTI/lib64:$PATH"
 export PATH="$(cygpath -u "${CUDNN_INSTALL_PATH}")/bin:$PATH"
