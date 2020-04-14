@@ -1564,6 +1564,25 @@ TF_CAPI_EXPORT extern void TF_DeleteServer(TF_Server* server);
 TF_CAPI_EXPORT extern void TF_RegisterLogListener(
     void (*listener)(const char*));
 
+// --------------------------------------------------------------------------
+// Indeep extensions.
+
+// Options struct from which to create a TF_SessionOptions struct
+TF_CAPI_EXPORT extern struct TFI_StructSessionOptions {
+    struct Gpu {
+        // Additionally to the CPU, use also the GPU if available
+        bool UseGpu;
+        // Fraction of the available GPU memory to allocate for each session
+        float UseGpuFraction;
+        // Disable GPU memory preallocation, allow growing if needed
+        bool AllowGrowth;
+    };
+    Gpu GpuOptions;
+};
+
+TF_CAPI_EXPORT extern void TFI_SetStructOptions(TF_SessionOptions* options,
+    const TFI_StructSessionOptions* structOptions);
+
 #ifdef __cplusplus
 } /* end extern "C" */
 #endif

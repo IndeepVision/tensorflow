@@ -2561,4 +2561,26 @@ void TF_RegisterLogListener(void (*listener)(const char*)) {
 #endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
 }
 
+// --------------------------------------------------------------------------
+// Indeep extensions.
+
+void TFI_SetStructOptions(TF_SessionOptions* options,
+    const TFI_StructSessionOptions* structOptions) {
+
+    tensorflow::ConfigProto config;
+    tensorflow::GPUOptions* gpuOptions = config.mutable_gpu_options();
+
+    // Enable or disable usage of GPU
+    auto deviceMap = config.mutable_device_count();
+    deviceMap->at("GPU") = structOptions->GpuOptions.UseGpu ? 1 : 0;
+    deviceMap->at("CPU") = 1;
+
+    // Set some other GPU options
+    gpuOptions->set_per_process_gpu_memory_fraction(structOptions->GpuOptions.UseGpuFraction);
+    gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
+
+    // Load config into session options
+    options->options.config = config;
+}
+
 }  // end extern "C"

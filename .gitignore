@@ -45,5 +45,5 @@ Pods
 xcuserdata
 
 # Indeep
-.vscode
 .vs
+lib_package
