@@ -34,7 +34,7 @@ mkdir -p "$TMPDIR"
 export PS4='+ $(date) + '
 
 # Set bash path
-export BAZEL_SH=${BAZEL_SH:-"C:/msys64/usr/bin/bash.exe"}
+export BAZEL_SH=${BAZEL_SH:-"D:/msys64/usr/bin/bash.exe"}
 
 export PYTHON_BASE_PATH="${PYTHON_DIRECTORY:-"Users/jvall/AppData/Local/Programs/Python/Python36"}"
 

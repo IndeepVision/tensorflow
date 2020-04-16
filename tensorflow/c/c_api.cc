@@ -213,7 +213,6 @@ void TF_Reset(const TF_SessionOptions* opt, const char** containers,
 
 namespace tensorflow {
 
-
 Status MessageToBuffer(const tensorflow::protobuf::MessageLite& in,
                        TF_Buffer* out) {
   if (out->data != nullptr) {
@@ -2565,27 +2564,81 @@ void TF_RegisterLogListener(void (*listener)(const char*)) {
 // Indeep extensions.
 
 void TFI_SetStructOptions(TF_SessionOptions* options,
-    const TFI_StructSessionOptions* structOptions) {
+                          const TFI_StructSessionOptions* structOptions) {
+  tensorflow::ConfigProto config;
+  tensorflow::GPUOptions* gpuOptions = config.mutable_gpu_options();
+  tensorflow::OptimizerOptions* optimizerOptions =
+      config.mutable_graph_options()->mutable_optimizer_options();
 
-    tensorflow::ConfigProto config;
-    tensorflow::GPUOptions* gpuOptions = config.mutable_gpu_options();
+  // Enable or disable usage of GPU
+  auto deviceMap = config.mutable_device_count();
+  (*deviceMap)["CPU"] = 1;
+  if (structOptions->GpuOptions.UseGpu) {
+    (*deviceMap)["GPU"] = 1;
+  } else {
+    (*deviceMap)["GPU"] = 0;
+  }
 
-    // Enable or disable usage of GPU
-    auto deviceMap = config.mutable_device_count();
-    (*deviceMap)["CPU"] = 1;
-    if (structOptions->GpuOptions.UseGpu) {
-      (*deviceMap)["GPU"] = 1;
-    } 
-    else {
-      (*deviceMap)["GPU"] = 0;
-    }
+  // Set some other GPU options
+  gpuOptions->set_per_process_gpu_memory_fraction(
+      structOptions->GpuOptions.UseGpuFraction);
+  gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
 
-    // Set some other GPU options
-    gpuOptions->set_per_process_gpu_memory_fraction(structOptions->GpuOptions.UseGpuFraction);
-    gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
+  // Set optimizer options
+  tensorflow::OptimizerOptions_GlobalJitLevel jitLevel = tensorflow::
+      OptimizerOptions_GlobalJitLevel::OptimizerOptions_GlobalJitLevel_DEFAULT;
+  if (structOptions->GraphOptions.GlobalJitLevel == 1) {
+    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_ON_1;
+  } else if (structOptions->GraphOptions.GlobalJitLevel == 2) {
+    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_ON_1;
+  } else if (structOptions->GraphOptions.GlobalJitLevel == -1) {
+    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_OFF;
+  }
+  optimizerOptions->set_global_jit_level(jitLevel);
 
-    // Load config into session options
-    options->options.config = config;
+  // Set paralellization options
+  config.set_inter_op_parallelism_threads =
+      structOptions->InterOpParallelismThreads;
+  config.set_intra_op_parallelism_threads =
+      structOptions->IntraOpParallelismThreads;
+
+  // Load config into session options
+  options->options.config = config;
+}
+
+TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
+  tensorflow::RunOptions newRunOptions;
+
+  // Enable or disable full trace
+  if (runOptionsStruct->EnableFullTrace) {
+    newRunOptions.set_trace_level(tensorflow::RunOptions_TraceLevel_FULL_TRACE);
+  } else {
+    newRunOptions.set_trace_level(tensorflow::RunOptions_TraceLevel_NO_TRACE);
+  }
+
+  // Set run timeout
+  if (runOptionsStruct->RunTimeout > 0) {
+    newRunOptions.set_timeout_in_ms(runOptionsStruct->RunTimeout);
+  }
+
+  // Serialize run options to protobuf
+  auto buffer = TF_NewBuffer();
+  buffer->length = newRunOptions.ByteSizeLong();
+  void* data = new uint8_t[buffer->length];
+  newRunOptions.SerializeToArray(data, buffer->length);
+  buffer->data = data;
+
+  // Return buffer
+  return buffer;
+}
+
+bool TFI_LogToListeners(std::string msg) {
+#if !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
+  tensorflow::logging::LogToListeners(msg);
+#endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
 }
 
 }  // end extern "C"
