@@ -2600,10 +2600,8 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
   optimizerOptions->set_global_jit_level(jitLevel);
 
   // Set paralellization options
-  config.set_inter_op_parallelism_threads =
-      structOptions->InterOpParallelismThreads;
-  config.set_intra_op_parallelism_threads =
-      structOptions->IntraOpParallelismThreads;
+  config.set_inter_op_parallelism_threads(structOptions->InterOpParallelismThreads);
+  config.set_intra_op_parallelism_threads(structOptions->IntraOpParallelismThreads);
 
   // Load config into session options
   options->options.config = config;
@@ -2637,7 +2635,7 @@ TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
 
 bool TFI_LogToListeners(std::string msg) {
 #if !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
-  tensorflow::logging::LogToListeners(msg);
+  return tensorflow::logging::LogToListeners(msg);
 #endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
 }
 

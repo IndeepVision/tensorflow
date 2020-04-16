@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string>
 
 #include "tensorflow/c/tf_attrtype.h"
 #include "tensorflow/c/tf_datatype.h"
