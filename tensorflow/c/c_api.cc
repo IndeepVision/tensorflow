@@ -2592,7 +2592,7 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
         OptimizerOptions_GlobalJitLevel_ON_1;
   } else if (structOptions->GraphOptions.GlobalJitLevel == 2) {
     jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
-        OptimizerOptions_GlobalJitLevel_ON_1;
+        OptimizerOptions_GlobalJitLevel_ON_2;
   } else if (structOptions->GraphOptions.GlobalJitLevel == -1) {
     jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
         OptimizerOptions_GlobalJitLevel_OFF;
@@ -2637,6 +2637,15 @@ bool TFI_LogToListeners(std::string msg) {
 #if !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
   return tensorflow::logging::LogToListeners(msg);
 #endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
+}
+
+void TFI_ParseStepStats(TF_Buffer* runMetadata, std::string* pOutString) {
+  // Convert buffer into a metadata protobuf
+  tensorflow::RunMetadata runMetadataProto;
+  runMetadataProto.ParseFromArray(runMetadata->data, runMetadata->length);
+
+  // Serialize protobuf and return it as string
+  runMetadataProto.SerializeToString(pOutString);
 }
 
 }  // end extern "C"

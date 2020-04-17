@@ -1613,6 +1613,9 @@ TF_CAPI_EXPORT extern TF_Buffer* TFI_CreateRunOptions(
 // Method to test the logging functionality of Tensorflow
 TF_CAPI_EXPORT extern bool TFI_LogToListeners(std::string msg);
 
+// Method to extract the StepStats object from a metadata buffer generated after a run with tracing
+TF_CAPI_EXPORT extern void TFI_ParseStepStats(TF_Buffer* runMetadata, std::string* pOutString);
+
 #ifdef __cplusplus
 } /* end extern "C" */
 #endif

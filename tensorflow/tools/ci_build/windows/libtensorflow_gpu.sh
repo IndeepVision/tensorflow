@@ -36,7 +36,7 @@ run_configure_for_gpu_build
 # build_libtensorflow_tarball in ../builds/libtensorflow.sh
 # cannot be used on Windows since it relies on pkg_tar rules.
 # So we do something special here
- bazel --output_user_root=${TMPDIR} build -c opt --copt=/arch:AVX --copt=/arch:AVX2 --copt=/fp:fast --announce_rc \
+ bazel --output_user_root=${TMPDIR} build --config=v2 --config=xla --config=opt --copt=/arch:AVX --copt=/arch:AVX2 --copt=/std:c++14 --announce_rc \
    :LICENSE \
    tensorflow:tensorflow.dll \
    tensorflow:tensorflow_dll_import_lib \
