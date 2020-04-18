@@ -19,6 +19,7 @@ limitations under the License.
 #include <limits>
 #include <memory>
 #include <vector>
+#include <fstream>
 
 #include "absl/strings/match.h"
 // Required for IS_MOBILE_PLATFORM
@@ -2639,13 +2640,23 @@ bool TFI_LogToListeners(std::string msg) {
 #endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
 }
 
-void TFI_ParseStepStats(TF_Buffer* runMetadata, std::string* pOutString) {
+bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, std::string* filePath) {
   // Convert buffer into a metadata protobuf
   tensorflow::RunMetadata runMetadataProto;
   runMetadataProto.ParseFromArray(runMetadata->data, runMetadata->length);
 
-  // Serialize protobuf and return it as string
-  runMetadataProto.SerializeToString(pOutString);
+  // Get step stats
+  const tensorflow::StepStats& stepStatsProto = runMetadataProto.step_stats();
+
+  // Write serialized protobuf to provided filepath and return if Ok
+  std::ofstream out(*filePath, std::ofstream::binary | std::ofstream::out);
+  if (out.is_open()) {
+    out << stepStatsProto.SerializeAsString();
+    out.close();
+    return true;
+  } else {
+    return false;
+  }
 }
 
 }  // end extern "C"
