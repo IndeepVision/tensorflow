@@ -1582,11 +1582,17 @@ TF_CAPI_EXPORT extern struct TFI_StructSessionOptions {
 
   struct Graph {
     // -1 turns off optimization, 1 and 2 turns on optimization with larger
-    // values being more agressive
+    // values being more agressive. For the moment this is hard-disabled
     int8_t GlobalJitLevel;
+    // Uses optimizations considering that the graph will not be modified
+    bool OptimizeForStaticGraph;
   };
   Graph GraphOptions;
 
+  // General blocking operation timeout, if different than 0 it will apply to
+  // all blocking operations that are not overriden by a specific operation-wise
+  // timeout (for example the run timeout in the RunOptions)
+  uint32_t OperationTimeout;
   // Parallelize the execution of individual operations
   // 0 means the system picks an appropriate number.
   uint16_t IntraOpParallelismThreads;

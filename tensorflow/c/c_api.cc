@@ -2570,6 +2570,8 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
   tensorflow::GPUOptions* gpuOptions = config.mutable_gpu_options();
   tensorflow::OptimizerOptions* optimizerOptions =
       config.mutable_graph_options()->mutable_optimizer_options();
+  tensorflow::ConfigProto_Experimental* experimentalOptions =
+    config.mutable_experimental();
 
   // Enable or disable usage of GPU
   auto deviceMap = config.mutable_device_count();
@@ -2598,11 +2600,19 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
     jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
         OptimizerOptions_GlobalJitLevel_OFF;
   }
-  optimizerOptions->set_global_jit_level(jitLevel);
+  // JIT is hard disabled for the moment
+  optimizerOptions->set_global_jit_level(tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_OFF);
 
   // Set paralellization options
   config.set_inter_op_parallelism_threads(structOptions->InterOpParallelismThreads);
   config.set_intra_op_parallelism_threads(structOptions->IntraOpParallelismThreads);
+
+  // Set general operation timeout
+  config.set_operation_timeout_in_ms(structOptions->OperationTimeout);
+
+  // Set experimental options
+  experimentalOptions->set_optimize_for_static_graph(structOptions->GraphOptions.OptimizeForStaticGraph);
 
   // Load config into session options
   options->options.config = config;
