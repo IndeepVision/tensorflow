@@ -23,6 +23,7 @@ limitations under the License.
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <mutex>
 
 #include "absl/base/log_severity.h"
 #include "absl/strings/string_view.h"

@@ -2644,9 +2644,11 @@ TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
   return buffer;
 }
 
-bool TFI_LogToListeners(std::string msg) {
+void TFI_AddDebugLog(const char* msg) {
 #if !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
-  return tensorflow::logging::LogToListeners(msg);
+  // Log the message
+  LOG(INFO) << std::string(msg);
+  // return tensorflow::logging::LogToListeners(msg);
 #endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
 }
 
@@ -2667,6 +2669,34 @@ bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, std::string* filePath) {
   } else {
     return false;
   }
+}
+
+class TFCustomLogSink : public tensorflow::TFLogSink {
+public:
+  // Construct a log sink from a C listener
+  TFCustomLogSink(void (*listener)(const int&, const char*)) : listener_(std::move(listener)) {
+  }
+
+  // The pure virtual send function on the sink calls the listener
+  void Send(const tensorflow::TFLogEntry& entry) {
+    auto log_severity = static_cast<int>(entry.log_severity());
+    auto log_message = entry.ToString();
+    this->listener_(log_severity, log_message.c_str());
+  }
+
+private:
+  void (*listener_)(const int&, const char*);
+};
+
+void TFI_AddDebugLogSink(void (*listener)(const int&, const char*)) {
+  // Create log sink
+  auto sink = new TFCustomLogSink(listener);
+  tensorflow::TFAddLogSink(sink);
+}
+
+void TFI_RemoveDebugLogSink() {
+  // Try to remove the only log sink that there is
+  tensorflow::TFRemoveLogSink(nullptr);
 }
 
 }  // end extern "C"

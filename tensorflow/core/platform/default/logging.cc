@@ -36,20 +36,26 @@ limitations under the License.
 
 namespace tensorflow {
 
+std::mutex log_sink_mutex;
+TFLogSink* current_log_sink = nullptr;
+
 void TFAddLogSink(TFLogSink* sink) {
-  // LogSink is not implemented.
-  // If necessary, one can add the log sink support as follows.
-  // 1. Define a global vector<TFLogSink> to keep track of all registered
-  //    TFLogSink objects. Protect the global vector with mutex to make it
-  //    thread-safe.
-  // 2. Add/remove elements from the global vector<TFLogSink> in TFAddLogSink
-  //    and TFRemoveLogSink function
-  // 3. Add logic in LogMessage::GenerateLogMessage() below to dispatch log
-  //    messages to all the registered log sinks.
+  std::unique_lock<std::mutex> locker(log_sink_mutex);
+  // First remove any previous log sink
+  if (current_log_sink != nullptr) {
+    delete current_log_sink;
+    current_log_sink = nullptr;
+  }
+
+  current_log_sink = sink;
 }
 
 void TFRemoveLogSink(TFLogSink* sink) {
-  // LogSink is not implemented.
+  std::unique_lock<std::mutex> locker(log_sink_mutex);
+  if (current_log_sink != nullptr) {
+    delete current_log_sink;
+    current_log_sink = nullptr;
+  }
 }
 
 namespace internal {
@@ -241,24 +247,34 @@ void LogMessage::GenerateLogMessage() {
 #else
 
 void LogMessage::GenerateLogMessage() {
-  static bool log_thread_id = EmitThreadIdFromEnv();
-  static EnvTime* env_time = tensorflow::EnvTime::Default();
-  uint64 now_micros = env_time->NowMicros();
-  time_t now_seconds = static_cast<time_t>(now_micros / 1000000);
-  int32 micros_remainder = static_cast<int32>(now_micros % 1000000);
-  const size_t time_buffer_size = 30;
-  char time_buffer[time_buffer_size];
-  strftime(time_buffer, time_buffer_size, "%Y-%m-%d %H:%M:%S",
-           localtime(&now_seconds));
-  const size_t tid_buffer_size = 10;
-  char tid_buffer[tid_buffer_size] = "";
-  if (log_thread_id) {
-    snprintf(tid_buffer, sizeof(tid_buffer), " %7u",
-             absl::base_internal::GetTID());
-  }
-  // TODO(jeff,sanjay): Replace this with something that logs through the env.
-  fprintf(stderr, "%s.%06d: %c%s %s:%d] %s\n", time_buffer, micros_remainder,
-          "IWEF"[severity_], tid_buffer, fname_, line_, str().c_str());
+  if (current_log_sink == nullptr) {
+    static bool log_thread_id = EmitThreadIdFromEnv();
+    static EnvTime* env_time = tensorflow::EnvTime::Default();
+    uint64 now_micros = env_time->NowMicros();
+    time_t now_seconds = static_cast<time_t>(now_micros / 1000000);
+    int32 micros_remainder = static_cast<int32>(now_micros % 1000000);
+    const size_t time_buffer_size = 30;
+    char time_buffer[time_buffer_size];
+    strftime(time_buffer, time_buffer_size, "%Y-%m-%d %H:%M:%S",
+            localtime(&now_seconds));
+    const size_t tid_buffer_size = 10;
+    char tid_buffer[tid_buffer_size] = "";
+    if (log_thread_id) {
+      snprintf(tid_buffer, sizeof(tid_buffer), " %7u",
+              absl::base_internal::GetTID());
+    }
+    // TODO(jeff,sanjay): Replace this with something that logs through the env.
+    fprintf(stderr, "%s.%06d: %c%s %s:%d] %s\n", time_buffer, micros_remainder,
+            "IWEF"[severity_], tid_buffer, fname_, line_, str().c_str());
+
+  } else {
+    //////////////////////////////
+    // Custom Indeep logger
+    //////////////////////////////
+    std::unique_lock<std::mutex> locker(log_sink_mutex);
+    std::string message = "[" + std::string(fname_) + ":" + std::to_string(line_) + "] " + std::string(str());
+    current_log_sink->Send(TFLogEntry(severity_, message.c_str()));
+  }    
 }
 #endif
 

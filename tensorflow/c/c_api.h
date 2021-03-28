@@ -1616,11 +1616,18 @@ TF_CAPI_EXPORT extern struct TFI_StructRunOptions {
 TF_CAPI_EXPORT extern TF_Buffer* TFI_CreateRunOptions(
     TFI_StructRunOptions* runOptions);
 
-// Method to test the logging functionality of Tensorflow
-TF_CAPI_EXPORT extern bool TFI_LogToListeners(std::string msg);
+// Method to test the logging functionality of Tensorflow. It adds a debug log.
+TF_CAPI_EXPORT extern void TFI_AddDebugLog(const char* msg);
 
 // Method to extract the StepStats object from a metadata buffer generated after a run with tracing
 TF_CAPI_EXPORT extern bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, std::string* filePath);
+
+// Ads a listener to the debug logs. Only one can be added.
+TF_CAPI_EXPORT extern void TFI_AddDebugLogSink(
+    void (*listener)(const int&, const char*));
+
+// Removes the log sink if there is one registered.
+TF_CAPI_EXPORT extern void TFI_RemoveDebugLogSink();
 
 #ifdef __cplusplus
 } /* end extern "C" */
