@@ -26,7 +26,7 @@
 # * Bazel windows executable copied as "bazel.exe" and included in PATH.
 
 # Use a temporary directory with a short name.
-export TMPDIR=${TMPDIR:-"D:/tmp"}
+export TMPDIR=${TMPDIR:-"C:/tmp"}
 export TMPDIR=$(cygpath -m "$TMPDIR")
 mkdir -p "$TMPDIR"
 
@@ -34,12 +34,12 @@ mkdir -p "$TMPDIR"
 export PS4='+ $(date) + '
 
 # Set bash path
-export BAZEL_SH=${BAZEL_SH:-"D:/msys64/usr/bin/bash.exe"}
+export BAZEL_SH=${BAZEL_SH:-"C:/Users/jvall/Indeep_projects/msys64/usr/bin/bash.exe"}
 
-export PYTHON_BASE_PATH="${PYTHON_DIRECTORY:-"Users/jvall/AppData/Local/Programs/Python/Python36"}"
+export PYTHON_BASE_PATH="${PYTHON_DIRECTORY:-"Users/jvall/Indeep_projects/python_3.6.8"}"
 
 # Set the path to find bazel.
-export PATH="/c/Users/jvall/bazelisk/bazel.exe:$PATH"
+export PATH="/c/Users/jvall/Indeep_projects/baselisk/bazel.exe:$PATH"
 
 # Set Python path for ./configure
 export PYTHON_BIN_PATH="C:/${PYTHON_BASE_PATH}/python.exe"
