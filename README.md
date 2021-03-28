@@ -1,3 +1,6 @@
+## This is a fork of tensorflow for IndeepVision. 
+## NOTE: We are using branch r2.1
+
 <div align="center">
   <img src="https://www.tensorflow.org/images/tf_logo_social.png">
 </div>
