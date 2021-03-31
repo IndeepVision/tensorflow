@@ -2586,6 +2586,7 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
   gpuOptions->set_per_process_gpu_memory_fraction(
       structOptions->GpuOptions.UseGpuFraction);
   gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
+  gpuOptions->set_visible_device_list(std::to_string(structOptions->GpuOptions.selected_device_index));
 
   // Set optimizer options
   tensorflow::OptimizerOptions_GlobalJitLevel jitLevel = tensorflow::

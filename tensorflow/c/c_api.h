@@ -1577,6 +1577,8 @@ TF_CAPI_EXPORT extern struct TFI_StructSessionOptions {
     float UseGpuFraction;
     // Disable GPU memory preallocation, allow growing if needed
     bool AllowGrowth;
+    // Selected GPU device index
+    int selected_device_index;
   };
   Gpu GpuOptions;
 
