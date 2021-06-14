@@ -1221,7 +1221,7 @@ TF_CAPI_EXPORT extern TF_Session* TF_NewSession(TF_Graph* graph,
 TF_CAPI_EXPORT extern TF_Session* TF_LoadSessionFromSavedModel(
     const TF_SessionOptions* session_options, const TF_Buffer* run_options,
     const char* export_dir, const char* const* tags, int tags_len,
-    TF_Graph* graph, TF_Buffer* meta_graph_def, TF_Status* status);
+    TF_Graph* graph, TF_Buffer* meta_graph_def, const char* default_device, TF_Status* status);
 
 // Close a session.
 //
@@ -1578,7 +1578,9 @@ TF_CAPI_EXPORT extern struct TFI_StructSessionOptions {
     // Disable GPU memory preallocation, allow growing if needed
     bool AllowGrowth;
     // Selected GPU device index
-    int selected_device_index;
+    // This is not used anymore because it is a global tensorflow configuration, not a session configuration,
+    // see https://github.com/tensorflow/tensorflow/issues/18861
+    // int selected_device_index;
   };
   Gpu GpuOptions;
 

@@ -2186,7 +2186,7 @@ TF_Session* TF_NewSession(TF_Graph* graph, const TF_SessionOptions* opt,
 TF_Session* TF_LoadSessionFromSavedModel(
     const TF_SessionOptions* session_options, const TF_Buffer* run_options,
     const char* export_dir, const char* const* tags, int tags_len,
-    TF_Graph* graph, TF_Buffer* meta_graph_def, TF_Status* status) {
+    TF_Graph* graph, TF_Buffer* meta_graph_def, const char* default_device, TF_Status* status) {
 // TODO(sjr): Remove the IS_MOBILE_PLATFORM guard. This will require ensuring
 // that the tensorflow/cc/saved_model:loader build target is mobile friendly.
 #if defined(IS_MOBILE_PLATFORM) || defined(IS_SLIM_BUILD)
@@ -2217,7 +2217,7 @@ TF_Session* TF_LoadSessionFromSavedModel(
   tensorflow::SavedModelBundle bundle;
   status->status =
       tensorflow::LoadSavedModel(session_options->options, run_options_proto,
-                                 export_dir, tag_set, &bundle);
+                                 export_dir, tag_set, &bundle, default_device);
   if (!status->status.ok()) return nullptr;
 
   // Create a TF_Graph from the MetaGraphDef. This is safe as long as Session
@@ -2227,6 +2227,22 @@ TF_Session* TF_LoadSessionFromSavedModel(
   // TODO(jhseu): When Session is modified to take Graphs instead of
   // GraphDefs, return the Graph generated in LoadSavedModel().
   TF_ImportGraphDefOptions* import_opts = TF_NewImportGraphDefOptions();
+
+  // ////////////////////////////////////
+  // auto graph_def = bundle.meta_graph_def.graph_def();
+  // // INDEEP ---> This is used to set a default device to operations that have not a default device.
+  // // Can be used to set the selected GPU.
+  // if (default_device != nullptr) {
+  //   LOG(INFO) << std::string("Setting device <" + std::string(default_device) + "> as default device");
+  //   TF_ImportGraphDefOptionsSetDefaultDevice(import_opts, default_device);
+
+  //   for(int i = 0; i < graph_def.node_size(); ++i)
+  //   {
+  //     graph_def.mutable_node(i)->set_device(default_device);
+  //   }
+  // }
+  // ////////////////////////////////////
+
   TF_ImportGraphDefResults results;
   GraphImportGraphDefLocked(graph, bundle.meta_graph_def.graph_def(),
                             import_opts, &results, status);
@@ -2577,7 +2593,7 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
   auto deviceMap = config.mutable_device_count();
   (*deviceMap)["CPU"] = 1;
   if (structOptions->GpuOptions.UseGpu) {
-    (*deviceMap)["GPU"] = 1;
+    (*deviceMap)["GPU"] = 100;
   } else {
     (*deviceMap)["GPU"] = 0;
   }
@@ -2586,7 +2602,9 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
   gpuOptions->set_per_process_gpu_memory_fraction(
       structOptions->GpuOptions.UseGpuFraction);
   gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
-  gpuOptions->set_visible_device_list(std::to_string(structOptions->GpuOptions.selected_device_index));
+  // This is not used anymore because it is a global tensorflow configuration, not a session configuration,
+  // see https://github.com/tensorflow/tensorflow/issues/18861
+  // gpuOptions->set_visible_device_list(std::to_string(structOptions->GpuOptions.selected_device_index));
 
   // Set optimizer options
   tensorflow::OptimizerOptions_GlobalJitLevel jitLevel = tensorflow::
@@ -2614,6 +2632,9 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
 
   // Set experimental options
   experimentalOptions->set_optimize_for_static_graph(structOptions->GraphOptions.OptimizeForStaticGraph);
+
+  config.set_allow_soft_placement(true);
+  // config.set_log_device_placement(true); // This will log the placement of all operations of the graph, and will show where they are allocated
 
   // Load config into session options
   options->options.config = config;

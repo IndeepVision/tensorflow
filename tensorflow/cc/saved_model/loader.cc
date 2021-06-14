@@ -65,13 +65,13 @@ uint64 GetLatencyMicroseconds(const uint64 start_microseconds) {
   return end_microseconds - start_microseconds;
 }
 
-Status LoadMetaGraphIntoSession(const MetaGraphDef& meta_graph_def,
+Status LoadMetaGraphIntoSession(const GraphDef& graph_def,
                                 const SessionOptions& session_options,
                                 std::unique_ptr<Session>* session) {
   Session* session_p = nullptr;
   TF_RETURN_IF_ERROR(NewSession(session_options, &session_p));
   session->reset(session_p);
-  return (*session)->Create(meta_graph_def.graph_def());
+  return (*session)->Create(graph_def);
 }
 
 Tensor CreateStringTensor(const string& value) {
@@ -280,14 +280,30 @@ Status LoadSavedModelInternal(const SessionOptions& session_options,
                               const RunOptions& run_options,
                               const string& export_dir,
                               const std::unordered_set<string>& tags,
-                              SavedModelBundle* const bundle) {
+                              SavedModelBundle* const bundle, const char* default_device) {
   const uint64 read_start_microseconds = Env::Default()->NowMicros();
   TF_RETURN_IF_ERROR(ReadMetaGraphDefFromSavedModel(export_dir, tags,
                                                     &bundle->meta_graph_def));
   TF_RETURN_IF_ERROR(
       ReadSavedModelDebugInfoIfPresent(export_dir, &bundle->debug_info));
+
+  ////////////////////////////////////
+  ////////////////////////////////////
+  auto graph_def = bundle->meta_graph_def.graph_def();
+  if (default_device != nullptr) {
+    LOG(INFO) << "Setting default device <" << default_device << ">";
+    for(int i = 0; i < graph_def.node_size(); ++i)
+    {
+      // if (!graph_def.mutable_node(i)->device().empty()) { // Doesn't work
+        graph_def.mutable_node(i)->set_device(default_device);  
+      // }
+    }
+  }
+  ////////////////////////////////////
+  ////////////////////////////////////
+
   TF_RETURN_IF_ERROR(LoadMetaGraphIntoSession(
-      bundle->meta_graph_def, session_options, &bundle->session));
+      graph_def, session_options, &bundle->session));
 
   std::vector<AssetFileDef> asset_file_defs;
   TF_RETURN_IF_ERROR(
@@ -324,11 +340,11 @@ SavedModelBundleInterface::~SavedModelBundleInterface() {}
 Status LoadSavedModel(const SessionOptions& session_options,
                       const RunOptions& run_options, const string& export_dir,
                       const std::unordered_set<string>& tags,
-                      SavedModelBundle* const bundle) {
+                      SavedModelBundle* const bundle, const char* default_device) {
   // TODO(robson): Add tests for the counters.
   const uint64 start_microseconds = Env::Default()->NowMicros();
   const Status status = LoadSavedModelInternal(session_options, run_options,
-                                               export_dir, tags, bundle);
+                                               export_dir, tags, bundle, default_device);
   auto log_and_count = [&](const string& status_str) {
     LOG(INFO) << "SavedModel load for tags { " << absl::StrJoin(tags, " ")
               << " }; Status: " << status_str << ": " << status << ". Took "
@@ -472,7 +488,7 @@ Status LoadSavedModel(const SessionOptions& session_options,
   // TODO(mrry): Consider specializing the session creation to reduce peak
   // RAM consumption by using `Session::Create(GraphDef&&)`.
   TF_RETURN_IF_ERROR(LoadSavedModel(rewritten_options, run_options, export_dir,
-                                    tags, &legacy_bundle));
+                                    tags, &legacy_bundle, nullptr));
   *bundle = SavedModelBundleLite(
       absl::make_unique<LiteSessionWrapper>(std::move(legacy_bundle.session)),
       std::move(*legacy_bundle.meta_graph_def.mutable_signature_def()));
