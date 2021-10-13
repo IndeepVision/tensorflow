@@ -2674,7 +2674,7 @@ void TFI_AddDebugLog(const char* msg) {
 #endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
 }
 
-bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, std::string* filePath) {
+bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, const char* filePath) {
   // Convert buffer into a metadata protobuf
   tensorflow::RunMetadata runMetadataProto;
   runMetadataProto.ParseFromArray(runMetadata->data, runMetadata->length);
@@ -2683,7 +2683,7 @@ bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, std::string* filePath) {
   const tensorflow::StepStats& stepStatsProto = runMetadataProto.step_stats();
 
   // Write serialized protobuf to provided filepath and return if Ok
-  std::ofstream out(*filePath, std::ofstream::binary | std::ofstream::out);
+  std::ofstream out(filePath, std::ofstream::binary | std::ofstream::out);
   if (out.is_open()) {
     out << stepStatsProto.SerializeAsString();
     out.close();

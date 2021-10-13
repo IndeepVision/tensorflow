@@ -1624,7 +1624,7 @@ TF_CAPI_EXPORT extern TF_Buffer* TFI_CreateRunOptions(
 TF_CAPI_EXPORT extern void TFI_AddDebugLog(const char* msg);
 
 // Method to extract the StepStats object from a metadata buffer generated after a run with tracing
-TF_CAPI_EXPORT extern bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, std::string* filePath);
+TF_CAPI_EXPORT extern bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, const char* filePath);
 
 // Ads a listener to the debug logs. Only one can be added.
 TF_CAPI_EXPORT extern void TFI_AddDebugLogSink(
