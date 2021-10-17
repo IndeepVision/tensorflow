@@ -2668,8 +2668,8 @@ TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
 
 void TFI_AddDebugLog(const char* msg) {
 #if !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
-  // Log the message
-  LOG(INFO) << std::string(msg);
+  // Log the message with the level ERROR
+  LOG(ERROR) << std::string(msg);
   // return tensorflow::logging::LogToListeners(msg);
 #endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
 }
