@@ -1265,7 +1265,8 @@ TF_CAPI_EXPORT extern TF_Session* TF_NewSession(TF_Graph* graph,
 TF_CAPI_EXPORT extern TF_Session* TF_LoadSessionFromSavedModel(
     const TF_SessionOptions* session_options, const TF_Buffer* run_options,
     const char* export_dir, const char* const* tags, int tags_len,
-    TF_Graph* graph, TF_Buffer* meta_graph_def, TF_Status* status);
+    TF_Graph* graph, TF_Buffer* meta_graph_def, const char* default_device,
+    TF_Status* status);
 
 // Close a session.
 //
@@ -1619,6 +1620,77 @@ TF_CAPI_EXPORT extern void TF_RegisterLogListener(
 // On failure, place an error status in status.
 TF_CAPI_EXPORT extern void TF_RegisterFilesystemPlugin(
     const char* plugin_filename, TF_Status* status);
+
+// --------------------------------------------------------------------------
+// Indeep extensions
+
+// Structured options from which to create a TF_SessionOptions
+typedef struct TFI_StructSessionOptions {
+  struct Gpu {
+    // Additionally to the CPU, use also the GPU if available
+    bool UseGpu;
+    // Fraction of the available GPU memory to allocate for each session
+    float UseGpuFraction;
+    // Disable GPU memory preallocation, allow growing if needed
+    bool AllowGrowth;
+    // Selected GPU device index
+    // This is not used anymore because it is a global tensorflow configuration,
+    // not a session configuration, see
+    // https://github.com/tensorflow/tensorflow/issues/18861 int
+    // selected_device_index;
+  };
+  Gpu GpuOptions;
+
+  struct Graph {
+    // -1 turns off optimization, 1 and 2 turns on optimization with larger
+    // values being more agressive. For the moment this is hard-disabled
+    int8_t GlobalJitLevel;
+    // Uses optimizations considering that the graph will not be modified
+    bool OptimizeForStaticGraph;
+  };
+  Graph GraphOptions;
+
+  // General blocking operation timeout, if different than 0 it will apply to
+  // all blocking operations that are not overriden by a specific operation-wise
+  // timeout (for example the run timeout in the RunOptions)
+  uint32_t OperationTimeout;
+  // Parallelize the execution of individual operations
+  // 0 means the system picks an appropriate number.
+  uint16_t IntraOpParallelismThreads;
+  // Parallelize the execution of a graph
+  // 0 means the system picks an appropriate number.
+  // Negative means all operations are performed in caller's thread.
+  uint16_t InterOpParallelismThreads;
+} TFI_StructSessionOptions;
+
+// Method to create session options from a structured options object
+TF_CAPI_EXPORT extern void TFI_SetStructOptions(
+    TF_SessionOptions* options, const TFI_StructSessionOptions* structOptions);
+
+// Structured options from which to create a TF_Buffer with run options
+typedef struct TFI_StructRunOptions {
+  bool EnableFullTrace;
+  uint32_t RunTimeout;  // In milliseconds
+} TFI_StructRunOptions;
+
+// Method to create run options from a structured options object
+TF_CAPI_EXPORT extern TF_Buffer* TFI_CreateRunOptions(
+    TFI_StructRunOptions* runOptions);
+
+// Method to test the logging functionality of Tensorflow. It adds a debug log
+TF_CAPI_EXPORT extern void TFI_AddDebugLog(const char* msg);
+
+// Method to extract the StepStats object from a metadata buffer generated after
+// a run with tracing
+TF_CAPI_EXPORT extern bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata,
+                                                    const char* filePath);
+
+// Ads a listener to the debug logs. Only one can be added
+TF_CAPI_EXPORT extern void TFI_AddDebugLogSink(void (*listener)(const int&,
+                                                                const char*));
+
+// Removes the log sink if there is one registered
+TF_CAPI_EXPORT extern void TFI_RemoveDebugLogSink();
 
 #ifdef __cplusplus
 } /* end extern "C" */

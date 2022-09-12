@@ -16,6 +16,7 @@ limitations under the License.
 #include "tensorflow/c/c_api.h"
 
 #include <algorithm>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <vector>
@@ -2273,7 +2274,8 @@ TF_Session* TF_NewSession(TF_Graph* graph, const TF_SessionOptions* opt,
 TF_Session* TF_LoadSessionFromSavedModel(
     const TF_SessionOptions* session_options, const TF_Buffer* run_options,
     const char* export_dir, const char* const* tags, int tags_len,
-    TF_Graph* graph, TF_Buffer* meta_graph_def, TF_Status* status) {
+    TF_Graph* graph, TF_Buffer* meta_graph_def, const char* default_device,
+    TF_Status* status) {
 // TODO(sjr): Remove the IS_MOBILE_PLATFORM guard. This will require ensuring
 // that the tensorflow/cc/saved_model:loader build target is mobile friendly.
 #if defined(IS_MOBILE_PLATFORM) || defined(IS_SLIM_BUILD)
@@ -2304,7 +2306,7 @@ TF_Session* TF_LoadSessionFromSavedModel(
   tensorflow::SavedModelBundle bundle;
   status->status =
       tensorflow::LoadSavedModel(session_options->options, run_options_proto,
-                                 export_dir, tag_set, &bundle);
+                                 export_dir, tag_set, &bundle, default_device);
   if (!status->status.ok()) return nullptr;
 
   // Create a TF_Graph from the MetaGraphDef. This is safe as long as Session
@@ -2698,6 +2700,156 @@ void TF_RegisterFilesystemPlugin(const char* plugin_filename,
 #else
   status->status = tensorflow::RegisterFilesystemPlugin(plugin_filename);
 #endif  // defined(IS_MOBILE_PLATFORM) || defined(IS_SLIM_BUILD)
+}
+
+// --------------------------------------------------------------------------
+// Indeep extensions
+
+void TFI_SetStructOptions(TF_SessionOptions* options,
+                          const TFI_StructSessionOptions* structOptions) {
+  tensorflow::ConfigProto config;
+  tensorflow::GPUOptions* gpuOptions = config.mutable_gpu_options();
+  tensorflow::OptimizerOptions* optimizerOptions =
+      config.mutable_graph_options()->mutable_optimizer_options();
+  tensorflow::ConfigProto_Experimental* experimentalOptions =
+      config.mutable_experimental();
+
+  // Enable or disable usage of GPU
+  auto deviceMap = config.mutable_device_count();
+  (*deviceMap)["CPU"] = 1;
+  if (structOptions->GpuOptions.UseGpu) {
+    (*deviceMap)["GPU"] = 100;
+  } else {
+    (*deviceMap)["GPU"] = 0;
+  }
+
+  // Set some other GPU options
+  gpuOptions->set_per_process_gpu_memory_fraction(
+      structOptions->GpuOptions.UseGpuFraction);
+  gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
+  // This is not used anymore because it is a global tensorflow configuration,
+  // not a session configuration, see
+  // https://github.com/tensorflow/tensorflow/issues/18861
+  // gpuOptions->set_visible_device_list(std::to_string(structOptions->GpuOptions.selected_device_index));
+
+  // Set optimizer options
+  tensorflow::OptimizerOptions_GlobalJitLevel jitLevel = tensorflow::
+      OptimizerOptions_GlobalJitLevel::OptimizerOptions_GlobalJitLevel_DEFAULT;
+  if (structOptions->GraphOptions.GlobalJitLevel == 1) {
+    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_ON_1;
+  } else if (structOptions->GraphOptions.GlobalJitLevel == 2) {
+    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_ON_2;
+  } else if (structOptions->GraphOptions.GlobalJitLevel == -1) {
+    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_OFF;
+  }
+  // JIT is hard disabled for the moment
+  optimizerOptions->set_global_jit_level(
+      tensorflow::OptimizerOptions_GlobalJitLevel::
+          OptimizerOptions_GlobalJitLevel_OFF);
+
+  // Set paralellization options
+  config.set_inter_op_parallelism_threads(
+      structOptions->InterOpParallelismThreads);
+  config.set_intra_op_parallelism_threads(
+      structOptions->IntraOpParallelismThreads);
+
+  // Set general operation timeout
+  config.set_operation_timeout_in_ms(structOptions->OperationTimeout);
+
+  // Set experimental options
+  experimentalOptions->set_optimize_for_static_graph(
+      structOptions->GraphOptions.OptimizeForStaticGraph);
+
+  config.set_allow_soft_placement(true);
+  // config.set_log_device_placement(true); // This will log the placement of
+  // all operations of the graph, and will show where they are allocated
+
+  // Load config into session options
+  options->options.config = config;
+}
+
+TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
+  tensorflow::RunOptions newRunOptions;
+
+  // Enable or disable full trace
+  if (runOptionsStruct->EnableFullTrace) {
+    newRunOptions.set_trace_level(tensorflow::RunOptions_TraceLevel_FULL_TRACE);
+  } else {
+    newRunOptions.set_trace_level(tensorflow::RunOptions_TraceLevel_NO_TRACE);
+  }
+
+  // Set run timeout
+  if (runOptionsStruct->RunTimeout > 0) {
+    newRunOptions.set_timeout_in_ms(runOptionsStruct->RunTimeout);
+  }
+
+  // Serialize run options to protobuf
+  auto buffer = TF_NewBuffer();
+  buffer->length = newRunOptions.ByteSizeLong();
+  void* data = new uint8_t[buffer->length];
+  newRunOptions.SerializeToArray(data, buffer->length);
+  buffer->data = data;
+
+  // Return buffer
+  return buffer;
+}
+
+void TFI_AddDebugLog(const char* msg) {
+#if !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
+  // Log the message with the level ERROR
+  LOG(ERROR) << std::string(msg);
+  // return tensorflow::logging::LogToListeners(msg);
+#endif  // !defined(IS_MOBILE_PLATFORM) && !defined(IS_SLIM_BUILD)
+}
+
+bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata, const char* filePath) {
+  // Convert buffer into a metadata protobuf
+  tensorflow::RunMetadata runMetadataProto;
+  runMetadataProto.ParseFromArray(runMetadata->data, runMetadata->length);
+
+  // Get step stats
+  const tensorflow::StepStats& stepStatsProto = runMetadataProto.step_stats();
+
+  // Write serialized protobuf to provided filepath and return if Ok
+  std::ofstream out(filePath, std::ofstream::binary | std::ofstream::out);
+  if (out.is_open()) {
+    out << stepStatsProto.SerializeAsString();
+    out.close();
+    return true;
+  } else {
+    return false;
+  }
+}
+
+class TFCustomLogSink : public tensorflow::TFLogSink {
+ public:
+  // Construct a log sink from a C listener
+  TFCustomLogSink(void (*listener)(const int&, const char*))
+      : listener_(std::move(listener)) {}
+
+  // The pure virtual send function on the sink calls the listener
+  void Send(const tensorflow::TFLogEntry& entry) {
+    auto log_severity = static_cast<int>(entry.log_severity());
+    auto log_message = entry.ToString();
+    this->listener_(log_severity, log_message.c_str());
+  }
+
+ private:
+  void (*listener_)(const int&, const char*);
+};
+
+void TFI_AddDebugLogSink(void (*listener)(const int&, const char*)) {
+  // Create log sink
+  auto sink = new TFCustomLogSink(listener);
+  tensorflow::TFAddLogSink(sink);
+}
+
+void TFI_RemoveDebugLogSink() {
+  // Try to remove the only log sink that there is
+  tensorflow::TFRemoveLogSink(nullptr);
 }
 
 }  // end extern "C"
