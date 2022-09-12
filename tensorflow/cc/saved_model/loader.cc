@@ -266,26 +266,42 @@ Status RunRestore(const RunOptions& run_options, const string& export_dir,
 SavedModelBundleInterface::~SavedModelBundleInterface() {}
 
 Status LoadMetagraphIntoSession(const SessionOptions& session_options,
-                                const MetaGraphDef& meta_graph,
+                                const GraphDef& graph_def,
                                 std::unique_ptr<Session>* session) {
   Session* session_p = nullptr;
   TF_RETURN_IF_ERROR(NewSession(session_options, &session_p));
   session->reset(session_p);
-  TF_RETURN_IF_ERROR(ValidateSavedTensors(meta_graph.graph_def()));
-  return (*session)->Create(meta_graph.graph_def());
+  TF_RETURN_IF_ERROR(ValidateSavedTensors(graph_def));
+  return (*session)->Create(graph_def);
 }
 
 Status LoadSavedModelInternal(const SessionOptions& session_options,
                               const RunOptions& run_options,
                               const string& export_dir,
                               const std::unordered_set<string>& tags,
-                              SavedModelBundle* const bundle) {
+                              SavedModelBundle* const bundle, const char* default_device) {
   TF_RETURN_IF_ERROR(ReadMetaGraphDefFromSavedModel(export_dir, tags,
                                                     &bundle->meta_graph_def));
   TF_RETURN_IF_ERROR(
       ReadSavedModelDebugInfoIfPresent(export_dir, &bundle->debug_info));
+
+  ////////////////////////////////////
+  ////////////////////////////////////
+  auto graph_def = bundle->meta_graph_def.graph_def();
+  if (default_device != nullptr) {
+    LOG(INFO) << "Setting default device <" << default_device << ">";
+    for(int i = 0; i < graph_def.node_size(); ++i)
+    {
+      // if (!graph_def.mutable_node(i)->device().empty()) { // Doesn't work
+        graph_def.mutable_node(i)->set_device(default_device);  
+      // }
+    }
+  }
+  ////////////////////////////////////
+  ////////////////////////////////////
+  
   TF_RETURN_IF_ERROR(LoadMetagraphIntoSession(
-      session_options, bundle->meta_graph_def, &bundle->session));
+      session_options, graph_def, &bundle->session));
   TF_RETURN_IF_ERROR(RestoreSession(run_options, bundle->meta_graph_def,
                                     export_dir, &bundle->session));
   return OkStatus();
@@ -294,13 +310,13 @@ Status LoadSavedModelInternal(const SessionOptions& session_options,
 Status LoadSavedModel(const SessionOptions& session_options,
                       const RunOptions& run_options, const string& export_dir,
                       const std::unordered_set<string>& tags,
-                      SavedModelBundle* const bundle) {
+                      SavedModelBundle* const bundle, const char* default_device) {
   metrics::SavedModelReadApi(kCCLoadLabel).IncrementBy(1);
 
   // TODO(robson): Add tests for the counters.
   const uint64 start_microseconds = Env::Default()->NowMicros();
   const Status status = LoadSavedModelInternal(session_options, run_options,
-                                               export_dir, tags, bundle);
+                                               export_dir, tags, bundle, default_device);
   auto log_and_count = [&](const string& status_str) {
     LOG(INFO) << "SavedModel load for tags { " << absl::StrJoin(tags, " ")
               << " }; Status: " << status_str << ": " << status << ". Took "
@@ -475,7 +491,7 @@ Status LoadSavedModel(const SessionOptions& session_options,
   // TODO(mrry): Consider specializing the session creation to reduce peak
   // RAM consumption by using `Session::Create(GraphDef&&)`.
   TF_RETURN_IF_ERROR(LoadSavedModel(rewritten_options, run_options, export_dir,
-                                    tags, &legacy_bundle));
+                                    tags, &legacy_bundle, nullptr));
   *bundle = SavedModelBundleLite(
       absl::make_unique<LiteSessionWrapper>(std::move(legacy_bundle.session)),
       std::move(*legacy_bundle.meta_graph_def.mutable_signature_def()));
