@@ -4,6 +4,7 @@
 *perftools*gputools*
 *tf_*
 *TF_*
+*TFI_*
 *Eager*
 *TFE_*
 *nsync_*
