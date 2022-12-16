@@ -1631,15 +1631,21 @@ typedef struct TFI_StructSessionOptions {
     bool UseGpu;
     // Fraction of the available GPU memory to allocate for each session
     float UseGpuFraction;
-    // Disable GPU memory preallocation, allow growing if needed
+    // Disable GPU memory preallocation, allow growing if needed.
+    // If true, the allocator does not pre-allocate the entire specified GPU memory region, instead starting small and growing as needed
     bool AllowGrowth;
-    // Selected GPU device index
+    // Allows flexibility when placing operations on devices. If an operation is not compatible with the GPU it
+    // will automatically place it in the CPU without errors
+    bool AllowSoftPlacement;
+    // Logs device placement
+    bool LogDevicePlacement;
+
     // This is not used anymore because it is a global tensorflow configuration,
     // not a session configuration, see
-    // https://github.com/tensorflow/tensorflow/issues/18861 int
-    // selected_device_index;
+    // https://github.com/tensorflow/tensorflow/issues/18861
+    // Selected GPU device index
+    // int selected_device_index;
   };
-  Gpu GpuOptions;
 
   struct Graph {
     // -1 turns off optimization, 1 and 2 turns on optimization with larger
@@ -1647,9 +1653,21 @@ typedef struct TFI_StructSessionOptions {
     int8_t GlobalJitLevel;
     // Uses optimizations considering that the graph will not be modified
     bool OptimizeForStaticGraph;
+    // If true, optimize the graph using common subexpression elimination
+    bool DoCommonSubexpressionElimination;
+    // If true, perform constant folding optimization on the graph
+    bool DoConstantFolding;
+    // If true, perform function inlining on the graph
+    bool DoFunctionInlining;
+    // Whether to enable the MLIR-based Graph optimizations
+    // This will become a part of standard Tensorflow graph optimization
+    bool MlirGraphOptimization;
   };
-  Graph GraphOptions;
 
+  // General options about GPU configuration
+  Gpu GpuOptions;
+  // Graph optimization options
+  Graph GraphOptions;
   // General blocking operation timeout, if different than 0 it will apply to
   // all blocking operations that are not overriden by a specific operation-wise
   // timeout (for example the run timeout in the RunOptions)

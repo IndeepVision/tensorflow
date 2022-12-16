@@ -2714,7 +2714,11 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
   tensorflow::ConfigProto_Experimental* experimentalOptions =
       config.mutable_experimental();
 
-  // Enable or disable usage of GPU
+  //
+  // Gpu options
+  //
+
+  // Use GPU
   auto deviceMap = config.mutable_device_count();
   (*deviceMap)["CPU"] = 1;
   if (structOptions->GpuOptions.UseGpu) {
@@ -2723,49 +2727,73 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
     (*deviceMap)["GPU"] = 0;
   }
 
-  // Set some other GPU options
+  // UseGpuFraction
   gpuOptions->set_per_process_gpu_memory_fraction(
       structOptions->GpuOptions.UseGpuFraction);
-  gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
-  // This is not used anymore because it is a global tensorflow configuration,
-  // not a session configuration, see
-  // https://github.com/tensorflow/tensorflow/issues/18861
-  // gpuOptions->set_visible_device_list(std::to_string(structOptions->GpuOptions.selected_device_index));
 
-  // Set optimizer options
+  // Allow growth
+  gpuOptions->set_allow_growth(structOptions->GpuOptions.AllowGrowth);
+
+  // Allow soft placement
+  config.set_allow_soft_placement(structOptions->GpuOptions.AllowSoftPlacement);
+
+  // Log device placement
+  config.set_log_device_placement(structOptions->GpuOptions.LogDevicePlacement);
+
+  //
+  // Graph options
+  //
+
+  // GlobalJitLevel
   tensorflow::OptimizerOptions_GlobalJitLevel jitLevel = tensorflow::
       OptimizerOptions_GlobalJitLevel::OptimizerOptions_GlobalJitLevel_DEFAULT;
-  if (structOptions->GraphOptions.GlobalJitLevel == 1) {
+  if (structOptions->GraphOptions.GlobalJitLevel == 0) {
+    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
+        OptimizerOptions_GlobalJitLevel_OFF;
+  } else if (structOptions->GraphOptions.GlobalJitLevel == 1) {
     jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
         OptimizerOptions_GlobalJitLevel_ON_1;
   } else if (structOptions->GraphOptions.GlobalJitLevel == 2) {
     jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
         OptimizerOptions_GlobalJitLevel_ON_2;
-  } else if (structOptions->GraphOptions.GlobalJitLevel == -1) {
-    jitLevel = tensorflow::OptimizerOptions_GlobalJitLevel::
-        OptimizerOptions_GlobalJitLevel_OFF;
   }
-  // JIT is hard disabled for the moment
-  optimizerOptions->set_global_jit_level(
-      tensorflow::OptimizerOptions_GlobalJitLevel::
-          OptimizerOptions_GlobalJitLevel_OFF);
+  optimizerOptions->set_global_jit_level(jitLevel);
 
-  // Set paralellization options
-  config.set_inter_op_parallelism_threads(
-      structOptions->InterOpParallelismThreads);
+  // OptimizeForStaticGraph
+  experimentalOptions->set_optimize_for_static_graph(
+      structOptions->GraphOptions
+          .OptimizeForStaticGraph);  // Experimental option
+
+  // CommonSubexpressionElimination;
+  optimizerOptions->set_do_common_subexpression_elimination(
+      structOptions->GraphOptions.DoCommonSubexpressionElimination);
+
+  // DoConstantFolding
+  optimizerOptions->set_do_constant_folding(
+      structOptions->GraphOptions.DoConstantFolding);
+
+  // DoFunctionInlining
+  optimizerOptions->set_do_function_inlining(
+      structOptions->GraphOptions.DoFunctionInlining);
+
+  // Mlir graph optimization
+  experimentalOptions->set_enable_mlir_graph_optimization(
+      structOptions->GraphOptions.MlirGraphOptimization);
+
+  //
+  // General options
+  //
+
+  // OperationTimeout
+  config.set_operation_timeout_in_ms(structOptions->OperationTimeout);
+
+  // IntraOpParallelismThreads
   config.set_intra_op_parallelism_threads(
       structOptions->IntraOpParallelismThreads);
 
-  // Set general operation timeout
-  config.set_operation_timeout_in_ms(structOptions->OperationTimeout);
-
-  // Set experimental options
-  experimentalOptions->set_optimize_for_static_graph(
-      structOptions->GraphOptions.OptimizeForStaticGraph);
-
-  config.set_allow_soft_placement(true);
-  // config.set_log_device_placement(true); // This will log the placement of
-  // all operations of the graph, and will show where they are allocated
+  // InterOpParallelismThreads
+  config.set_inter_op_parallelism_threads(
+      structOptions->InterOpParallelismThreads);
 
   // Load config into session options
   options->options.config = config;
