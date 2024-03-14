@@ -942,27 +942,51 @@ TF_CAPI_EXPORT extern void TF_OperationToNodeDef(TF_Operation* oper,
                                                  TF_Buffer* output_node_def,
                                                  TF_Status* status);
 
-typedef struct TF_WhileParams {
-  // The number of inputs to the while loop, i.e. the number of loop variables.
-  // This is the size of cond_inputs, body_inputs, and body_outputs.
-  const int ninputs;
+// typedef struct TF_WhileParams {
+//   // The number of inputs to the while loop, i.e. the number of loop variables.
+//   // This is the size of cond_inputs, body_inputs, and body_outputs.
+//   const int ninputs;
 
-  // The while condition graph. The inputs are the current values of the loop
-  // variables. The output should be a scalar boolean.
-  TF_Graph* const cond_graph;
-  const TF_Output* const cond_inputs;
-  TF_Output cond_output;
+//   // The while condition graph. The inputs are the current values of the loop
+//   // variables. The output should be a scalar boolean.
+//   TF_Graph* const cond_graph;
+//   const TF_Output* const cond_inputs;
+//   TF_Output cond_output;
 
-  // The loop body graph. The inputs are the current values of the loop
-  // variables. The outputs are the updated values of the loop variables.
-  TF_Graph* const body_graph;
-  const TF_Output* const body_inputs;
-  TF_Output* const body_outputs;
+//   // The loop body graph. The inputs are the current values of the loop
+//   // variables. The outputs are the updated values of the loop variables.
+//   TF_Graph* const body_graph;
+//   const TF_Output* const body_inputs;
+//   TF_Output* const body_outputs;
 
-  // Unique null-terminated name for this while loop. This is used as a prefix
-  // for created operations.
-  const char* name;
-} TF_WhileParams;
+//   // Unique null-terminated name for this while loop. This is used as a prefix
+//   // for created operations.
+//   const char* name;
+// } TF_WhileParams;
+
+// This has been modified because const members are not allowed in C, produced a warning C4190 
+typedef struct TF_WhileParams
+    {
+        // The number of inputs to the while loop, i.e. the number of loop variables.
+        // This is the size of cond_inputs, body_inputs, and body_outputs.
+        int ninputs;
+
+        // The while condition graph. The inputs are the current values of the loop
+        // variables. The output should be a scalar boolean.
+        TF_Graph *cond_graph;
+        const TF_Output *cond_inputs;
+        TF_Output cond_output;
+
+        // The loop body graph. The inputs are the current values of the loop
+        // variables. The outputs are the updated values of the loop variables.
+        TF_Graph *body_graph;
+        const TF_Output *body_inputs;
+        TF_Output *body_outputs;
+
+        // Unique null-terminated name for this while loop. This is used as a prefix
+        // for created operations.
+        const char *name;
+    } TF_WhileParams;
 
 // Creates a TF_WhileParams for creating a while loop in `g`. `inputs` are
 // outputs that already exist in `g` used as initial values for the loop
@@ -1651,6 +1675,8 @@ typedef struct TFI_StructSessionOptions {
     // -1 turns off optimization, 1 and 2 turns on optimization with larger
     // values being more agressive. For the moment this is hard-disabled
     int8_t GlobalJitLevel;
+    // Enables JIT for CPU, necessary for further reducing inference time in conjuntion with the GlobalJitLevel
+    bool CpuGlobalJit;
     // Uses optimizations considering that the graph will not be modified
     bool OptimizeForStaticGraph;
     // If true, optimize the graph using common subexpression elimination
@@ -1704,11 +1730,18 @@ TF_CAPI_EXPORT extern bool TFI_WriteStepStatsToFile(TF_Buffer* runMetadata,
                                                     const char* filePath);
 
 // Ads a listener to the debug logs. Only one can be added
+// Removes the previous log sink, if there is one registered
+// Severity levels:
+// 0: INFO (very verbose)
+// 1: WARNING
+// 2: ERROR
+// 3: FATAL
 TF_CAPI_EXPORT extern void TFI_AddDebugLogSink(void (*listener)(const int&,
                                                                 const char*));
 
-// Removes the log sink if there is one registered
-TF_CAPI_EXPORT extern void TFI_RemoveDebugLogSink();
+// Removes the previous log sink, if there is one registered
+// Returns true if there was a log sink registered
+TF_CAPI_EXPORT extern bool TFI_RemoveDebugLogSink();
 
 #ifdef __cplusplus
 } /* end extern "C" */

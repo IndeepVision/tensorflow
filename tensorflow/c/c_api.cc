@@ -2758,6 +2758,7 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
         OptimizerOptions_GlobalJitLevel_ON_2;
   }
   optimizerOptions->set_global_jit_level(jitLevel);
+  optimizerOptions->set_cpu_global_jit(structOptions->GraphOptions.CpuGlobalJit);
 
   // OptimizeForStaticGraph
   experimentalOptions->set_optimize_for_static_graph(
@@ -2869,15 +2870,28 @@ class TFCustomLogSink : public tensorflow::TFLogSink {
   void (*listener_)(const int&, const char*);
 };
 
+tensorflow::TFLogSink* current_sink = nullptr;
+
 void TFI_AddDebugLogSink(void (*listener)(const int&, const char*)) {
+  // First remove any existing log sink
+  TFI_RemoveDebugLogSink();
+
   // Create log sink
-  auto sink = new TFCustomLogSink(listener);
-  tensorflow::TFAddLogSink(sink);
+  current_sink = new TFCustomLogSink(listener);
+  tensorflow::TFAddLogSink(current_sink);
 }
 
-void TFI_RemoveDebugLogSink() {
-  // Try to remove the only log sink that there is
-  tensorflow::TFRemoveLogSink(nullptr);
+bool TFI_RemoveDebugLogSink() {
+  if (current_sink != nullptr) {
+    // Try to remove the only log sink that there is
+    tensorflow::TFRemoveLogSink(current_sink);
+    current_sink = nullptr;
+    return true;
+  } 
+  else
+  {
+    return false;
+  }
 }
 
 }  // end extern "C"
