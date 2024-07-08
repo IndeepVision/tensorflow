@@ -2813,17 +2813,25 @@ TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
   // Set run timeout
   if (runOptionsStruct->RunTimeout > 0) {
     newRunOptions.set_timeout_in_ms(runOptionsStruct->RunTimeout);
-  }
+  }  
 
-  // Serialize run options to protobuf
-  auto buffer = TF_NewBuffer();
-  buffer->length = newRunOptions.ByteSizeLong();
-  void* data = new uint8_t[buffer->length];
-  newRunOptions.SerializeToArray(data, buffer->length);
-  buffer->data = data;
+  // // Serialize run options to protobuf
+  // auto buffer = TF_NewBuffer();
+  // buffer->length = newRunOptions.ByteSizeLong();
+  // void* data = new uint8_t[buffer->length];
+  // newRunOptions.SerializeToArray(data, buffer->length);
+  // buffer->data = data;
 
-  // Return buffer
-  return buffer;
+  // // Return buffer
+  // return buffer;
+
+  // This has been changed because the previous commented code was causing an exception with message:
+  // (bytes_produced_by_serialization) == (byte_size_before_serialization): Byte size calculation and serialization were inconsistent.
+  // This may indicate a bug in protocol buffers or it may be caused by concurrent modification of tensorflow.ConfigProto."
+
+  TF_Buffer* ret = TF_NewBuffer();
+  TF_CHECK_OK(MessageToBuffer(newRunOptions, ret));
+  return ret;
 }
 
 void TFI_AddDebugLog(const char* msg) {
