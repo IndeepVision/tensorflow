@@ -2798,6 +2798,13 @@ void TFI_SetStructOptions(TF_SessionOptions* options,
 
   // Load config into session options
   options->options.config = config;
+
+  // 20240710 - jvalles
+  // We have encountered an exception with message only runnning Debug mode:
+  // (bytes_produced_by_serialization) == (byte_size_before_serialization): Byte size calculation and serialization were inconsistent.
+  // This may indicate a bug in protocol buffers or it may be caused by concurrent modification of tensorflow.ConfigProto."
+  // -> This was caused due to not updating the signature of the struct TFI_StructSessionOptions, using an old signature in brain_server.
+  // The bottom reason was that the file c_api.h had not been updated in the compiled tensorflow (only updating the dll).
 }
 
 TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
@@ -2815,19 +2822,15 @@ TF_Buffer* TFI_CreateRunOptions(TFI_StructRunOptions* runOptionsStruct) {
     newRunOptions.set_timeout_in_ms(runOptionsStruct->RunTimeout);
   }  
 
+  // Previous method to serialize - jvalles 20240710
   // // Serialize run options to protobuf
   // auto buffer = TF_NewBuffer();
   // buffer->length = newRunOptions.ByteSizeLong();
   // void* data = new uint8_t[buffer->length];
   // newRunOptions.SerializeToArray(data, buffer->length);
   // buffer->data = data;
-
   // // Return buffer
   // return buffer;
-
-  // This has been changed because the previous commented code was causing an exception with message:
-  // (bytes_produced_by_serialization) == (byte_size_before_serialization): Byte size calculation and serialization were inconsistent.
-  // This may indicate a bug in protocol buffers or it may be caused by concurrent modification of tensorflow.ConfigProto."
 
   TF_Buffer* ret = TF_NewBuffer();
   TF_CHECK_OK(MessageToBuffer(newRunOptions, ret));
